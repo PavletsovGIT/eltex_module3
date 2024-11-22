@@ -34,6 +34,8 @@ typedef struct person_t {
 
 int create_record(person_t person, char* buff);
 int get_max_id();
+person_t find_person_by_id(int id);
+void correct_ids();
 
 // Functions
 void InitPerson(person_t* prs);
@@ -42,7 +44,7 @@ void InitSocialNetwork(social_network_t* sn);
 
 void AddPerson(person_t prs);
 void RemovePerson(int id);
-void EditPerson(int id);
+void EditPerson(int id, person_t person);
 
 void SetName(person_t* prs, const char* _name);
 void SetSurname(person_t* prs, const char* _surname);

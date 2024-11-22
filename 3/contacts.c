@@ -1,90 +1,14 @@
 #include "contacts.h"
 
-int create_record(person_t person, char* buff) {
-	char* ptr = buff;
-	int size;
-	char dot = ';', new_line = '\n';
-	char str[STR_SIZE];
-	
-	// Convert id to str
-	if (snprintf(str, STR_SIZE, "%d", person.id) < 0) {
-		perror("convert person id to string");
-		exit(EXIT_FAILURE);
-	}
-	size = strlen(str);
-	strncpy(ptr, str, size);
-	ptr += size;
-	*(ptr) = dot;
-	ptr++;
-	
-	// surname
-	size = strlen(person.surname);
-	strncpy(ptr, person.surname, size);
-	ptr += size;
-	*(ptr) = dot;
-	ptr++;
-	
-	// surname
-	size = strlen(person.name);
-	strncpy(ptr, person.name, size);
-	ptr += size;
-	*(ptr) = dot;
-	ptr++;
-	
-	// patronimic
-	size = strlen(person.patronimic);
-	strncpy(ptr, person.patronimic, size);
-	ptr += size;
-	*(ptr) = dot;
-	ptr++;
-	
-	// phone
-	size = strlen(person.phone);
-	strncpy(ptr, person.phone, size);
-	ptr += size;
-	*(ptr) = dot;
-	ptr++;
-	
-	// work.company
-	size = strlen(person.work.company);
-	strncpy(ptr, person.work.company, size);
-	ptr += size;
-	*(ptr) = dot;
-	ptr++;
-	
-	// work.post
-	size = strlen(person.work.post);
-	strncpy(ptr, person.work.post, size);
-	ptr += size;
-	*(ptr) = dot;
-	ptr++;
-	
-	// soc_net.name
-	size = strlen(person.socialNetwork.name);
-	strncpy(ptr, person.socialNetwork.name, size);
-	ptr += size;
-	*(ptr) = dot;
-	ptr++;
-	
-	// soc_name.link
-	size = strlen(person.socialNetwork.link);
-	strncpy(ptr, person.socialNetwork.link, size);
-	ptr += size;
-	*(ptr) = dot;
-	ptr++;
-	
-	// add \n
-	*(ptr) = new_line;
-	size = ptr - buff;
-	
-	return size;
+int create_record(person_t prs, char* buffer) {
+    return sprintf(buffer, "%d;%s;%s;%s;%s;%s;%s;%s;%s\n", prs.id, prs.name, prs.surname, prs.patronimic, prs.phone, prs.work.company, prs.work.post, prs.socialNetwork.name, prs.socialNetwork.link);
 }
 
 int get_max_id() {
 	int fd = open("contacts.cvs", O_RDONLY);
     if (fd == -1) {
         perror("can't open file");
-        exit("EXIT_FAILURE");
+        exit(EXIT_FAILURE);
     }
 
     int max_id = -1;  // Начальное значение для максимума
@@ -98,8 +22,8 @@ int get_max_id() {
 
         // Парсим все строки в буфере
         char *line = buffer;
+        person_t prs;
         while (*line && (line - buffer) < bytes_read) {
-            person_t prs;
             if (sscanf(line, "%d;%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^\n];", &prs.id, prs.name, prs.surname, prs.patronimic, prs.phone, prs.work.company, prs.work.post, prs.socialNetwork.name, prs.socialNetwork.link) == 9) {
                 if (prs.id > max_id) {
                     max_id = prs.id;
@@ -117,9 +41,99 @@ int get_max_id() {
     return max_id;
 }
 
+person_t find_person_by_id(int id) {
+	int fd = open("contacts.cvs", O_RDONLY);
+    if (fd == -1) {
+        perror("can't open file");
+        exit(EXIT_FAILURE);
+    }
+
+    char buffer[BUFFSIZE];
+    ssize_t bytes_read;
+    
+    person_t prs;
+
+    off_t offset = 0; // Смещение для lseek
+    while ((bytes_read = read(fd, buffer, BUFFSIZE)) > 0) {
+        // Перемещаемся назад на прочитанное количество байт
+        lseek(fd, offset, SEEK_SET);
+
+        // Парсим все строки в буфере
+        char *line = buffer;
+        while (*line && (line - buffer) < bytes_read) {
+            if (sscanf(line, "%d;%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];\n", &prs.id, prs.name, prs.surname, prs.patronimic, prs.phone, prs.work.company, prs.work.post, prs.socialNetwork.name, prs.socialNetwork.link) == 9) {
+                if (prs.id == id) {
+                    return prs;
+                }
+            }
+            // Переходим к следующей строке
+            line += strcspn(line, "\n") + 1;
+        }
+
+        // Смещаемся вперед на прочитанный блок
+        offset += bytes_read;
+    }
+    
+    // В случае неудачи возвращается дефолтный person со значением -1 в поле id
+    InitPerson(&prs);
+    prs.id = -1;
+
+    close(fd);
+    return prs;
+}
+
+void correct_ids() {
+	int fd = open("contacts.cvs", O_RDWR), count_fields, now_id = 0, new_str_size;
+	char buff[BUFFSIZE]; // Буффер для записи
+	char new_str[BUFFSIZE];
+	char* line;
+	ssize_t bytes_read; //  Кол-вл прочитаных байт
+	off_t offset = 0; // Смещение указателя для lseek
+	person_t prs;
+	
+	if (fd == -1) { // Проверка на открытие файла
+		perror("can't open file");
+		exit(EXIT_FAILURE);
+	}
+	
+	do {
+		bytes_read = read(fd, buff, BUFFSIZE);
+		lseek(fd, offset, SEEK_SET); // Перемещаемся на кол-во прочитанных байт от начала файла
+		
+		line = buff; // Просматриваем все строки в буфере
+		while(*line && (line - buff) < bytes_read) {
+			count_fields = sscanf(line, "%d;%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];\n", &prs.id, prs.name, prs.surname, prs.patronimic, prs.phone, prs.work.company, prs.work.post, prs.socialNetwork.name, prs.socialNetwork.link);
+			
+			if (count_fields != 9) { // 9 = кол-во переменных, которое считал sscanf. Ловим ошибку считывания
+				perror("can't read line in file");
+				printf("Count fields = %d", count_fields);
+				exit(EXIT_FAILURE);
+				continue;
+			}
+			
+			if (prs.id == now_id) { // Если prs.id == now_id то в записи стоит правильный порядковый id
+				line += strcspn(line, "\n") + 1; // перемещаем указатель дальше по строке, до следующего \n
+				now_id++;
+				continue;
+			}
+			
+			/*Производим замену строки на нужную*/
+			prs.id  = now_id; // Меняем на порядковый id
+			new_str_size = create_record(prs, new_str);
+			
+            lseek(fd, offset, SEEK_SET);
+            write(fd, new_str, new_str_size);
+            lseek(fd, offset + new_str_size, SEEK_CUR);
+			
+			now_id++;
+		}
+		offset += bytes_read; // увеличиваем смещение
+	}	while(bytes_read > 0);
+	
+}
+
 void InitPerson(person_t* prs) {
     char def_str[STR_SIZE] = "_default";
-
     prs->id = 0;
     strncpy(prs->name, def_str, STR_SIZE);
     strncpy(prs->surname, def_str, STR_SIZE);
@@ -150,7 +164,7 @@ void AddPerson(person_t prs) {
 	int n;
 	
 	// Создаём запись в buff, n - длинна записи
-	n = create_record(prs, buff);
+	n = create_record(prs, buff) + 1;
 	
 	// Дозапись в файл
 	int fd = open("contacts.cvs", O_WRONLY | O_APPEND);
@@ -161,9 +175,11 @@ void AddPerson(person_t prs) {
 	}
 	
 	bytes_written = write(fd, buff, n);
+	/*
 	n = 1;
 	buff[0] = '\n';
 	write(fd, buff, n);
+	*/
 
     printf("Записали %ld байт в файл.\n", bytes_written);
 
@@ -174,7 +190,7 @@ void RemovePerson(int id) {
 	
 }
 
-void EditPerson(int id) {
+void EditPerson(int id, person_t person) {
 
 }
 
