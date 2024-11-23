@@ -1,39 +1,39 @@
 CC = gcc
-CFLAGS = - Wall
+CFLAGS = -Wall
 
 .PHONY: all, clean
 
-all: fash summ difference strcompare help
+all: bin/fash bin/summ bin/difference bin/strcompare bin/help
 
-fash: fash.o
-	$(CC) fash.o -o fash
+bin/fash: bin/fash.o
+	$(CC) bin/fash.o -o bin/fash
 
-fash.o: fash.c
-	$(CC) $(CFALGS) -c fash.c
+bin/fash.o: src/fash.c
+	$(CC) $(CFLAGS) -c src/fash.c
 
-summ: summ.o
-	$(CC) summ.o -o summ
+bin/summ: bin/summ.o
+	$(CC) bin/summ.o -o bin/summ
 
-summ.o: summ.c
-	$(CC) $(CFALGS) -c summ.c
+bin/summ.o: src/summ.c
+	$(CC) $(CFLAGS) -c src/summ.c
 
-difference: difference.o
-	$(CC) difference.o -o difference
+bin/difference: bin/difference.o
+	$(CC) bin/difference.o -o bin/difference
 
-difference.o: difference.c
-	$(CC) $(CFALGS) -c difference.c
+bin/difference.o: src/difference.c
+	$(CC) $(CFLAGS) -c src/difference.c
 
-strcompare: strcompare.o
-	$(CC) strcompare.o -o strcompare
+bin/strcompare: bin/strcompare.o
+	$(CC) bin/strcompare.o -o bin/strcompare
 
-strcompare.o: strcompare.c
-	$(CC) $(CFALGS) -c strcompare.c
+bin/strcompare.o: src/strcompare.c
+	$(CC) $(CFLAGS) -c src/strcompare.c
 	
-help: help.o
-	$(CC) fash.o -o fash
+bin/help: bin/help.o
+	$(CC) bin/help.o -o bin/help
 
-help.o: help.c
-	$(CC) $(CFALGS) -c help.c
+bin/help.o: src/help.c
+	$(CC) $(CFLAGS) -c src/help.c
 
 clean:
-	rm *.o
+	rm -rf bin/*.o

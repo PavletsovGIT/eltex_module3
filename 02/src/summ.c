@@ -5,15 +5,15 @@ double summ(int n, int* arr) ;
 
 int main(int argc, char* argv[]) {
 	int* arr;
-	int i, j;
+	int i, j, size = argc - 1;
 	
-	arr = (int*)malloc(sizeof(int) * argc - 1);
+	arr = (int*)malloc(sizeof(int) * size);
 	
 	for (i = 1, j = 0; i < argc; i++, j++) {
 		arr[j] = atoi(argv[i]);
 	}
 	
-	printf("Summ = %lf\n", summ(argc - 1, arr));
+	printf("%lf\n", summ(size, arr));
 	
     exit(EXIT_SUCCESS);
 }
@@ -23,7 +23,6 @@ double summ(int n, int* arr) {
 	int i;
 	
 	for (i = 0; i < n; i++) {
-		printf("Summ id.%d : %d\n", i, arr[i]);
 		result += arr[i];
 	}
 	
