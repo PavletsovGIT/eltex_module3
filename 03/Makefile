@@ -1,7 +1,7 @@
 CC = gcc
-CFLAGS = -Wall
+CFLAGS = -Wall -g
 
-TARGET = app
+TARGET = a.out
 
 .PHONY: .all .clean
 
@@ -13,11 +13,8 @@ $(TARGET): main.o contacts.o
 main.o: main.c
 	$(CC) $(CFLAGS) -c main.c
 
-#cvslib.o: cvslib.c
-	#$(CC) $(CFLAGS) -c cvslib.c
-
 contacts.o: contacts.c
 	$(CC) $(CFLAGS) -c contacts.c
 
 clean:
-	rm *.o
+	rm -rf *.o

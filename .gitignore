@@ -52,6 +52,7 @@ Mkfile.old
 dkms.conf
 
 #Personal files
+.vs
 app
 tasks.txt
 issuies.txt

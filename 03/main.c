@@ -6,7 +6,7 @@ void test_findPerson(int id);
 void test_correctIDs();
 
 int main() {
-	for (int i = 0; i < 11; i++) {test_addPerson();}
+	// for (int i = 0; i < 11; i++) {test_addPerson();}
 	
 	//test_findPerson(3);
 	//test_findPerson(15);
