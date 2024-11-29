@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
 			srand(time(NULL));
 			
 			while(count != n) {
-				snprintf(write_buff, BUFFSIZE, "%d\0", rand() % 99); // Генерим рандомное число и пишем в буфер
+				snprintf(write_buff, BUFFSIZE, "%d", rand() % 99); // Генерим рандомное число и пишем в буфер
 				write(fd_fifo, write_buff, BUFFSIZE);
 				count++;
 			}

@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
 	int i, n;
 	
 	// Вычисляем площади квадратов
-	for (i = 0; i < argc; i++) {
+	for (i = 1; i < argc; i++) {
 		n = atoi(argv[i]);
 		printf("PID: %d : N = %d : S = %d\n", getpid(), n, n*n);
 	}

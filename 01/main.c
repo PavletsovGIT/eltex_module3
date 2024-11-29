@@ -12,32 +12,7 @@ int main(int argc, char* argv[]) {
 		exit(EXIT_FAILURE);
 	}
 	
-	pid_t pid;
-	int rv, i, j;
-	char** par_arr;
-	char** child_arr;
-	
-	size_t par_size = argc / 2 + 1;
-	size_t child_arr_size = argc - par_size + 1;
-	par_arr = (char**)malloc(sizeof(char*) * par_size);
-	child_arr = (char**)malloc(sizeof(char*) * child_arr_size);
-	
-	// Распределение аргументов между массивами
-	// Для par_arr
-	for (i = 1, j = 0; i < par_size; i++, j++) {
-		// Копируем значение
-		par_arr[j] = argv[i];
-		//strncpy(par_arr[i], argv[i], strlen(argv[i]));
-	}
-	par_arr[par_size - 1] = NULL;
-	
-	// Для child_arr
-	for (i = child_arr_size + 1, j = 0; i < argc; i++, j++) {
-		// Копируем значение
-		child_arr[j] = argv[i];
-		//strncpy(child_arr[i - child_arr_size], argv[i], strlen(argv[i]));
-	}
-	child_arr[child_arr_size - 1] = NULL;
+	// передвать аргументы из argv
 	
 	switch(pid = fork()) {
 	case -1:
@@ -46,13 +21,13 @@ int main(int argc, char* argv[]) {
 	case 0:
 		printf("CHILD: PID - %d\n", getpid());
 		printf("CHILD: PPID - %d\n", getppid());
-		execv("compute", child_arr);
+		execv("compute", argv[1]);
 		exit(EXIT_SUCCESS);
 
 	default:
 		printf("PARENT: PID - %d\n", getpid());
 		printf("PARENT: CHILD PID - %d\n", pid);
-		execv("compute", par_arr);
+		execv("compute", argv[par_size]);
 		wait(&rv);
 		printf("PARENT: RETURN STATUS FOR CHILD - %d\n", WEXITSTATUS(rv));
 

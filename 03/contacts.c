@@ -1,139 +1,63 @@
 #include "contacts.h"
 
-const char contacts_path[] = "contacts.txt";
+const char path[] = "contacts.txt";
 
-int create_record(person_t prs, char* buffer) {
-    return sprintf(buffer, "%d;%s;%s;%s;%s;%s;%s;%s;%s;\n", prs.id, prs.name, prs.surname, prs.patronimic, prs.phone, prs.work.company, prs.work.post, prs.socialNetwork.name, prs.socialNetwork.link) - 1;
-}
+// Читает файл с контактами и выдаёт двусвязный список
+contacts_t read_contacts() {
+    contacts_t cnt;
+    int fd = open(path, O_RDONLY);
+    int bytes_read;
+    char buffer[BUF_SIZE];
+    off_t offset = 0;
+    const int person_size = sizeof(person_t);
+    person_t tmp;
 
-int get_max_id() {
-	int fd = open(contacts_path, O_RDONLY);
-    if (fd == -1) {
-        perror("can't open file");
-        exit(EXIT_FAILURE);
-    }
-
-    int max_id = -1;  // Начальное значение для максимума
-    char buffer[BUFFSIZE];
-    ssize_t bytes_read;
-
-    off_t offset = 0; // Смещение для lseek
-    while ((bytes_read = read(fd, buffer, BUFFSIZE)) > 0) {
-        // Перемещаемся назад на прочитанное количество байт
-        lseek(fd, offset, SEEK_SET);
-
-        // Парсим все строки в буфере
-        char *line = buffer;
-        person_t prs;
-        while (*line && (line - buffer) < bytes_read) {
-            if (sscanf(line, "%d;%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^\n];", &prs.id, prs.name, prs.surname, prs.patronimic, prs.phone, prs.work.company, prs.work.post, prs.socialNetwork.name, prs.socialNetwork.link) == 9) {
-                if (prs.id > max_id) {
-                    max_id = prs.id;
-                }
-            }
-            // Переходим к следующей строке
-            line += strcspn(line, "\n") + 1;
-        }
-
-        // Смещаемся вперед на прочитанный блок
+    while((bytes_read = read(fd, buffer, person_size)) > 0) {
+        tmp = create_record(buffer);
+        AddPerson(&cnt, tmp);
         offset += bytes_read;
+        lseek(fd, offset, SEEK_SET); // Сдвигаемя на offset байт от начала
     }
 
-    close(fd);
-    return max_id;
+    return cnt;
 }
 
-person_t find_person_by_id(int id) {
-	int fd = open(contacts_path, O_RDONLY);
-    if (fd == -1) {
-        perror("can't open file");
-        exit(EXIT_FAILURE);
+// Записывает контакты в файл
+void write_contacts(contacts_t* contacts) {
+    if (contacts->head.next == NULL) {return;}
+
+    int fd = open(path, O_WRONLY);
+    item_t* it = contacts->head.next;
+
+    while (it != NULL) {
+        write(fd, &it->p, sizeof(person_t));
+        it = it->next; // Переходим к следующей записи
     }
-
-    char buffer[BUFFSIZE];
-    ssize_t bytes_read;
-    
-    person_t prs;
-
-    off_t offset = 0; // Смещение для lseek
-    while ((bytes_read = read(fd, buffer, BUFFSIZE)) > 0) {
-        // Перемещаемся назад на прочитанное количество байт
-        lseek(fd, offset, SEEK_SET);
-
-        // Парсим все строки в буфере
-        char *line = buffer;
-        while (*line && (line - buffer) < bytes_read) {
-            if (sscanf(line, "%d;%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];\n", &prs.id, prs.name, prs.surname, prs.patronimic, prs.phone, prs.work.company, prs.work.post, prs.socialNetwork.name, prs.socialNetwork.link) == 9) {
-                if (prs.id == id) {
-                    return prs;
-                }
-            }
-            // Переходим к следующей строке
-            line += strcspn(line, "\n") + 1;
-        }
-
-        // Смещаемся вперед на прочитанный блок
-        offset += bytes_read;
-    }
-    
-    // В случае неудачи возвращается дефолтный person со значением -1 в поле id
-    InitPerson(&prs);
-    prs.id = -1;
 
     close(fd);
-    return prs;
 }
 
-void correct_ids() {
-    int fd = open(contacts_path, O_RDWR), count_fields, now_id = 0, new_str_size;
-    char buff[BUFFSIZE]; // Буффер для записи
-    char new_str[BUFFSIZE];
-    char* line;
-    ssize_t bytes_read; //  Кол-вл прочитаных байт
-    off_t offset = 0; // Смещение указателя для lseek
-    person_t prs;
-    
-    if (fd == -1) { // Проверка на открытие файла
-        perror("can't open file");
-        exit(EXIT_FAILURE);
-    }
-    
-    do {
-        bytes_read = read(fd, buff, BUFFSIZE);
-        lseek(fd, offset, SEEK_SET); // Перемещаемся на кол-во прочитанных байт от начала файла
-        
-        line = buff; // Просматриваем все строки в буфере
-        while(*line && (line - buff) < bytes_read) {
-            count_fields = sscanf(line, "%d;%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];%32[^;];\n", &prs.id, prs.name, prs.surname, prs.patronimic, prs.phone, prs.work.company, prs.work.post, prs.socialNetwork.name, prs.socialNetwork.link);
-            
-            if (count_fields != 9) { // 9 = кол-во переменных, которое считал sscanf. Ловим ошибку считывания
-                perror("can't read line in file");
-                printf("Count fields = %d\nNow ID = %d", count_fields, now_id);
-                exit(EXIT_FAILURE);
-                continue;
-            }
-            
-            if (prs.id != now_id) {
-                prs.id = now_id;
-                int new_str_size = create_record(prs, new_str);
+person_t create_record(char* buf) {
+    person_t person;
+    memcpy(&person, buf, sizeof(person));
 
-                // Запись новой строки в файл
-                //lseek(fd, offset, SEEK_SET);
-                write(fd, new_str, new_str_size);
-            }
+    return person;
+}
 
-            // Переход к следующей строке
-            line += strlen(line) + 1;
-            offset += strlen(line) + 1;
-            now_id++;
-        }
-    } while (bytes_read > 0);
+void InitContacts(contacts_t* cnt) {
+    cnt->size = 0;
+    InitItem(&cnt->head);
+}
 
-    close(fd);
+void InitItem(item_t* item) {
+    InitPerson(&item->p);
+    item->next = NULL;
+    item->prev = NULL;
 }
 
 void InitPerson(person_t* prs) {
     char def_str[STR_SIZE] = "_default";
+
     prs->id = 0;
     strncpy(prs->name, def_str, STR_SIZE);
     strncpy(prs->surname, def_str, STR_SIZE);
@@ -157,38 +81,97 @@ void InitSocialNetwork(social_network_t* sn) {
     strncpy(sn->link, def_str, STR_SIZE);
 }
 
-void AddPerson(person_t prs) {
-	// char newline = '\n', separator = ';';
-	char buff[BUFFSIZE];
-	ssize_t bytes_written;
-	int n;
-	
-	// Создаём запись в buff, n - длинна записи
-	n = create_record(prs, buff) + 1;
-	
-	// Дозапись в файл
-	int fd = open(contacts_path, O_WRONLY | O_APPEND);
-	
-	if (fd == -1) {
-		perror("cant open file");
-		exit(EXIT_FAILURE);
-	}
-	
-	bytes_written = write(fd, buff, n);
-
-    printf("Записали %ld байт в файл.\n", bytes_written);
-
-    close(fd);
+item_t* Begin(contacts_t* cnt) {
+    return cnt->head.next;
 }
 
-void RemovePerson(int id) {
+item_t* End(contacts_t* cnt) {
+    if (cnt->head.next == NULL) return NULL;
 
+    item_t* it = cnt->head.next;
 
-	
+    while (it->next != NULL) {
+        it = it->next;
+    }
+
+    return it;
 }
 
-void EditPerson(int id, person_t person) {
+void Swap(item_t* it1, item_t* it2) {
+    person_t temp = it1->p;
+    it1->p = it2->p;
+    it2->p = temp;
+}
 
+void Sort(contacts_t* cnt) {
+    if (cnt->size <= 1) return;
+
+    for (item_t *i = cnt->head.next; i != NULL; i = i->next) {
+        for (item_t *j = i->next; j != NULL; j = j->next) {
+            if (strcmp(i->p.surname, j->p.surname) > 0) {
+                Swap(i, j);
+            }
+        }
+    }
+}
+
+void AddPerson(contacts_t* cnt, person_t prs) {
+    item_t* newItem = (item_t*)malloc(sizeof(item_t));
+    if (!newItem) {
+        printf("Ошибка выделения памяти\n");
+        return;
+    }
+
+    InitItem(newItem);
+    newItem->p = prs;
+    newItem->next = NULL;
+
+    if (cnt->head.next == NULL) {
+        cnt->head.next = newItem; // Добавление первого элемента
+        newItem->prev = &cnt->head;  // указываем, что предыдущий элемент - фиктивная голова
+    } else {
+        // Ищем последний элемент списка
+        item_t last = *cnt->head.next;  // начинаем с первого элемента, не с фиктивного
+        while (last.next != NULL) {
+            last = *last.next;
+        }
+        last.next = newItem;
+        newItem->prev = &last;
+    }
+    cnt->size++;
+
+    
+    Sort(cnt); // После добавления сортируем (если нужно)
+}
+
+void EditPerson(person_t* prs, person_t* edit_prs) {
+    memcpy(prs, edit_prs, sizeof(person_t));
+}
+
+void DeletePerson(contacts_t* cnt, person_t* prs) {
+    if (cnt->head.next == NULL) return;
+
+    item_t* it = cnt->head.next;
+
+    while (it && &it->p != prs) {
+        it = it->next;
+    }
+
+    if (it) {
+        item_t* nextItem = it->next;
+        item_t* prevItem = it->prev;
+
+        if (prevItem)
+            prevItem->next = nextItem;
+        else
+            cnt->head.next = nextItem;
+
+        if (nextItem)
+            nextItem->prev = prevItem;
+
+        free(it);
+        cnt->size--;
+    }
 }
 
 void SetName(person_t* prs, const char* _name) {
@@ -236,4 +219,16 @@ void SetSocNetName(social_network_t* sn, const char* _name)  {
 
 void SetSocNetLink(social_network_t* sn, const char* _link)  {
 	strncpy(sn->link, _link, STR_SIZE);
+}
+
+person_t* GetPersonById(contacts_t* cnt, int _id) {
+	if (_id > cnt->size) return NULL;
+	
+	item_t* it = cnt->head.next;
+	
+	while (it->p.id != _id || it->next != NULL) {
+		it = it->next;
+	}
+	
+	return &it->p;
 }
