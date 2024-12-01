@@ -53,6 +53,7 @@ dkms.conf
 
 #Personal files
 .vs
+.vscode
 app
 tasks.txt
 issuies.txt
