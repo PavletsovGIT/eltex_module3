@@ -1,76 +1,77 @@
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
+#include <string.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 
-#define MAXSTRSIZE 1000
-#define PORT 6789
+#define PORT 12345
+#define BUFFER_SIZE 1024
 
-int main()
-{
-    int sockfd; /* Дескриптор сокета */
-    int clilen, n; /* Переменные для различных длин 
-        и количества символов */
-    char line[MAXSTRSIZE]; /* Массив для принятой и 
-        отсылаемой строки */
-    struct sockaddr_in servaddr, cliaddr; /* Структуры 
-        для адресов сервера и клиента */
-    /* Заполняем структуру для адреса сервера: семейство
-    протоколов TCP/IP, сетевой интерфейс – любой, номер порта 
-    51000. Поскольку в структуре содержится дополнительное не
-    нужное нам поле, которое должно быть нулевым, перед 
-    заполнением обнуляем ее всю */
-    bzero(&servaddr, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(PORT);
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    /* Создаем UDP сокет */
-    if((sockfd = socket(PF_INET, SOCK_DGRAM, 0)) < 0){
-        perror(NULL); /* Печатаем сообщение об ошибке */
-        exit(1);
+int main() {
+    int sockfd;
+    struct sockaddr_in server_addr, client1_addr, client2_addr;
+    char buffer[BUFFER_SIZE];
+    socklen_t addr_len = sizeof(struct sockaddr_in);
+
+    // Создаем UDP-сокет
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
     }
-    /* Настраиваем адрес сокета */
-    if(bind(sockfd, (struct sockaddr *) &servaddr, 
-    sizeof(servaddr)) < 0){
-        perror(NULL);
+
+    // Настраиваем адрес сервера
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(PORT);
+
+    // Привязываем сокет к адресу
+    if (bind(sockfd, (const struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("bind failed");
         close(sockfd);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
-    while(1) {
-        /* Основной цикл обслуживания*/
-        /* В переменную clilen заносим максимальную длину
-        для ожидаемого адреса клиента */
-        clilen = sizeof(cliaddr);
-        /* Ожидаем прихода запроса от клиента и читаем его. 
-        Максимальная допустимая длина датаграммы – MAXSTRSIZE - 1 
-        символов, адрес отправителя помещаем в структуру 
-        cliaddr, его реальная длина будет занесена в 
-        переменную clilen */
-        if((n = recvfrom(sockfd, line, MAXSTRSIZE - 1, 0, 
-        (struct sockaddr *) &cliaddr, &clilen)) < 0){
-            perror(NULL);
-            close(sockfd);
-            exit(1);
-        }
-        /* Печатаем принятый текст на экране */
-        printf("From client: %s\n", line);
-        
-        printf("To client: ");
-        /* Вводим текст для ответа клиенту*/
-        fgets(line, MAXSTRSIZE, stdin);
-        line[strcspn(line, "\n") - 1] = '\0';
 
-        if(sendto(sockfd, line, strlen(line), 0, 
-        (struct sockaddr *) &cliaddr, clilen) < 0){
-            perror(NULL);
-            close(sockfd);
-            exit(1);
-        } /* Уходим ожидать новую датаграмму*/
+    printf("Сервер запущен и ожидает сообщения...\n");
+
+    int client1_ready = 0, client2_ready = 0;
+
+    while (1) {
+        memset(buffer, 0, BUFFER_SIZE);
+        struct sockaddr_in client_addr;
+        int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_addr, &addr_len);
+        if (n < 0) {
+            perror("recvfrom failed");
+            continue;
+        }
+
+        if (!client1_ready) {
+            client1_addr = client_addr;
+            client1_ready = 1;
+            printf("Первый клиент подключился: %s:%d\n",
+                   inet_ntoa(client1_addr.sin_addr), ntohs(client1_addr.sin_port));
+        } else if (!client2_ready && 
+                   (client_addr.sin_port != client1_addr.sin_port ||
+                    client_addr.sin_addr.s_addr != client1_addr.sin_addr.s_addr)) {
+            client2_addr = client_addr;
+            client2_ready = 1;
+            printf("Второй клиент подключился: %s:%d\n",
+                   inet_ntoa(client2_addr.sin_addr), ntohs(client2_addr.sin_port));
+        }
+
+        printf("Получено сообщение: %s\n", buffer);
+
+        // Пересылка сообщения другому клиенту
+        if (client1_ready && client2_ready) {
+            struct sockaddr_in *target_addr = 
+                (client_addr.sin_port == client1_addr.sin_port && 
+                 client_addr.sin_addr.s_addr == client1_addr.sin_addr.s_addr) 
+                ? &client2_addr : &client1_addr;
+
+            sendto(sockfd, buffer, strlen(buffer), 0, (struct sockaddr *)target_addr, addr_len);
+        }
     }
+
+    close(sockfd);
     return 0;
 }
