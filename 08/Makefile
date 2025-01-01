@@ -1,5 +1,5 @@
 all:
 	gcc -Wall main.c -o a.out
 
-clear:
+clean:
 	rm -rf *.out

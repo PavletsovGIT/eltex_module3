@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    int count_rn, pid, status;
+    int count_rn, pid, status, fd;
     key_t sem_key;
     int read_sem, write_sem;
 
@@ -43,6 +43,12 @@ int main(int argc, char *argv[])
 
     /* Количество случайных чисел */
     count_rn = atoi(argv[1]);
+
+    fd = open(SEM_READ_KEY, O_CREAT);
+    close(fd);
+
+    fd = open(SEM_WRITE_KEY, O_CREAT);
+    close(fd);
 
     /* Инициализация семафора чтения */
     if ((sem_key = ftok(SEM_READ_KEY, 'a')) == -1) {
@@ -91,6 +97,9 @@ int main(int argc, char *argv[])
             break;
     }
 
+    remove(PATH_NAME);
+    remove(SEM_READ_KEY);
+    remove(SEM_WRITE_KEY);
 	exit(EXIT_SUCCESS);
 }
 
