@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
             printf("PARENT: CHILD PID = %d\n", pid);
             printf("PARENT PID = %d\n", getpid());
 
-            while (count < n) {
+            while (count < n) { //НАДО ВЫЗЫВАТЬ SIGUSR1
                 snprintf(write_buff, BUFFSIZE, "data%d", count);  // Формируем строку для записи в файл
                 if ((fd_file = open(file, O_WRONLY | O_TRUNC)) == -1) {  // Открываем файл для записи
                     perror("PARENT: Can't open file to write");
