@@ -1,120 +1,124 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <time.h>
-#include <signal.h>
+#include <fcntl.h>
 #include <semaphore.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 
-#define BUFFSIZE 20
-#define TIME_TO_SLEEP 1
+#define BUF_SIZE        1024
+#define PATH_NAME       "./file.txt"
+static int proc_count = 1; /* Count of child processes */
+sem_t read_sem, write_sem;
 
-const char *SEM_NAME = "/file_semaphore";  // Именованный семафор
-const char *CHANNEL_NAME = "/tmp/fifo0001.1";
-const char *FILE_NAME = "file.txt";
+void parent_process(int);
+void child_process(int);
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[])
+{
     if (argc != 2) {
-        fprintf(stderr, "Program needs 1 argument - count of random numbers\n");
+        fprintf(stderr, "Usage: %s <count of random numbers>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
-    int n, count = 0, rand_num;
-    int pid;
-    int fd_channel, fd_file;
-    char write_buff[BUFFSIZE], read_buff[BUFFSIZE];
-    sem_t *sem;
+    int rand_count, pid, status;
 
-    n = atoi(argv[1]);
+    /* Initialization */
     srand(time(NULL));
+    rand_count = atoi(argv[1]);
 
-    unlink(CHANNEL_NAME);
-
-    if (mkfifo(CHANNEL_NAME, 0666) == -1) {
-        perror("Can't create channel");
+    if (sem_init(&read_sem, 0, 0) == -1) {
+        perror("sem_init");
         exit(EXIT_FAILURE);
     }
 
-    sem = sem_open(SEM_NAME, O_CREAT, 0666, 1);
-    if (sem == SEM_FAILED) {
-        perror("Failed to create semaphore");
+    if (sem_init(&write_sem, 0, proc_count) == -1) { /* Open from start */
+        perror("sem_init");
         exit(EXIT_FAILURE);
     }
 
-    switch (pid = fork()) {
+    switch(pid = fork()) {
         case -1:
-            perror("fork failed");
+            perror("fork");
             exit(EXIT_FAILURE);
-        case 0:  // Дочерний процесс
-            printf("CHILD PID = %d\n", getpid());
-            fd_channel = open(CHANNEL_NAME, O_WRONLY);
-            if (fd_channel == -1) {
-                perror("CHILD: Can't open channel to write");
-                exit(EXIT_FAILURE);
-            }
-
-            while (count < n) {
-                sleep(0.5);
-                sem_wait(sem);  // Захват семафора
-                fd_file = open(FILE_NAME, O_RDONLY);
-                if (fd_file == -1) {
-                    perror("CHILD: Can't open file to read");
-                    sem_post(sem);  // Освобождаем семафор
-                    exit(EXIT_FAILURE);
-                }
-
-                read(fd_file, read_buff, BUFFSIZE);
-                close(fd_file);
-                sem_post(sem);  // Освобождаем семафор
-
-                printf("PID: %d : message = %s\n", getpid(), read_buff);
-
-                rand_num = rand() % 99;
-                write(fd_channel, &rand_num, sizeof(int));
-                count++;
-            }
-
-            close(fd_channel);
+        case 0:
+            child_process(rand_count);
             exit(EXIT_SUCCESS);
-        default:  // Родительский процесс
-            printf("PARENT PID = %d\n", getpid());
-            fd_channel = open(CHANNEL_NAME, O_RDONLY);
-            if (fd_channel == -1) {
-                perror("PARENT: Can't open channel to read");
-                exit(EXIT_FAILURE);
+        default:
+            parent_process(rand_count);
+            waitpid(pid, &status, 0);
+
+            if (WIFEXITED(status)) {
+                printf("Child process exited with status %d\n", WEXITSTATUS(status));
+            } else {
+                printf("Child process did not exit normally\n");
             }
-
-            while (count < n) {
-                snprintf(write_buff, BUFFSIZE, "data%d", count);
-
-                sem_wait(sem);  // Захват семафора
-                fd_file = open(FILE_NAME, O_WRONLY | O_TRUNC | O_CREAT, 0666);
-                if (fd_file == -1) {
-                    perror("PARENT: Can't open file to write");
-                    sem_post(sem);
-                    exit(EXIT_FAILURE);
-                }
-
-                write(fd_file, write_buff, strlen(write_buff));
-                close(fd_file);
-                sem_post(sem);  // Освобождаем семафор
-
-                read(fd_channel, &rand_num, sizeof(int));
-                printf("PID: %d : RAND NUM = %d\n", getpid(), rand_num);
-                count++;
-            }
-
-            close(fd_channel);
-            wait(NULL);  // Ожидаем завершения дочернего процесса
-            sem_close(sem);
-            sem_unlink(SEM_NAME);
-            unlink(CHANNEL_NAME);
             break;
     }
 
-    return 0;
+
+    sem_destroy(&read_sem);
+    sem_destroy(&write_sem);
+    remove(PATH_NAME);
+
+    exit(EXIT_SUCCESS);
+}
+
+void parent_process(int rand_count)
+{
+    int fd;
+    char buf[BUF_SIZE];
+
+    for (int i = 0; i < rand_count; i++) {
+        sem_wait(&read_sem); // Ожидание разблокировки чтения
+
+        /* Чтение числа из файла */
+        if ((fd = open(PATH_NAME, O_RDONLY)) == -1) {
+            perror("open");
+            exit(EXIT_FAILURE);
+        }
+        if (read(fd, buf, BUF_SIZE) == -1) {
+            perror("read");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+        close(fd);
+
+        printf("Parent read: %s\n", buf);
+
+        sem_post(&write_sem); // Разблокировка записи
+    }
+}
+
+void child_process(int rand_count)
+{
+    int fd;
+    char buf[BUF_SIZE];
+
+    for (int i = 0; i < rand_count; i++) {
+        sem_wait(&write_sem); // Ожидание разблокировки записи
+
+        /* Генерация случайного числа */
+        int random_num = rand() % 100;
+        snprintf(buf, BUF_SIZE, "%d", random_num);
+
+        /* Запись числа в файл */
+        if ((fd = open(PATH_NAME, O_WRONLY | O_CREAT | O_TRUNC, 0666)) == -1) {
+            perror("open");
+            exit(EXIT_FAILURE);
+        }
+        if (write(fd, buf, strlen(buf)) == -1) {
+            perror("write");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+        close(fd);
+
+        printf("Child wrote: %s\n", buf);
+
+        sem_post(&read_sem); // Разблокировка чтения
+    }
 }

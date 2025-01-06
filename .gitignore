@@ -57,3 +57,4 @@ dkms.conf
 app
 tasks.txt
 issuies.txt
+*.log
