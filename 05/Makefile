@@ -6,4 +6,4 @@ a.out: main.c
 	gcc -Wall -g main.c -o a.out
 
 clean:
-	rm -rf *.o *.out
+	rm -rf *.o *.out *.txt *.log

@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
     // Шаг 1 - создание сокета
-	// AF_INET     - сокет Интернета
+	// AF_INET     - сокет IPv4
     // SOCK_STREAM  - потоковый сокет (с
     //      установкой соединения)
     // 0 - по умолчанию выбирается TCP протокол
@@ -144,18 +144,16 @@ int main(int argc, char *argv[])
 		(char*)inet_ntoa(cli_addr.sin_addr));*/
 		printusers();
 
-        pid = fork();
-        if (pid < 0) {
-			error("ERROR on fork");
-		}         
-        if (pid == 0)  
-		{
-            close(sockfd);
-            dostuff(newsockfd);
-            exit(0);
-        }
-        else {
-			close(newsockfd);
+		switch (pid = fork()) {
+			case -1:
+				error("fork");
+			case 0:
+				close(sockfd);
+            	dostuff(newsockfd);
+            	exit(0);
+            default:
+            	close(newsockfd);
+
 		}
     } /* end of while */
     close(sockfd);

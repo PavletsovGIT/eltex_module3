@@ -82,33 +82,4 @@ int main(int argc, char *argv[])
      printf("Recv error \n");
      close(my_sock);
      return -1;
-	
-	/*
-	printf("Please enter the message: ");
-    bzero(buff,256);
-    fgets(buff,255,stdin);
-    n = write(sockfd,buff,strlen(buff));
-    if (n < 0) 
-         error("ERROR writing to socket");
-    
-	bzero(buff,256);
-    n = read(sockfd,buff,255);
-    if (n < 0) 
-         error("ERROR reading from socket");
-    printf("%s\n",buff);
-    
-	printf("Please enter the message: ");
-    bzero(buff,256);
-    fgets(buff,255,stdin);
-    n = write(sockfd,buff,strlen(buff));
-    if (n < 0) 
-         error("ERROR writing to socket");
-    
-	bzero(buff,256);
-    n = read(sockfd,buff,255);
-    if (n < 0) 
-         error("ERROR reading from socket");
-    printf("%s\n",buff);
-	close(sockfd);
-    return 0;*/
 }
